@@ -1,1 +1,4 @@
+scikit-learn
+opencv-python
+numpy
 pillow

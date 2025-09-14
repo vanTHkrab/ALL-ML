@@ -58,7 +58,7 @@ if gpu_available:
 # --- 1. CONFIGURATION AND SETUP ---
 # Paths
 DATA_DIR = "./data/prepared/images"
-VOLUME_FILES_DIR = "./data/prepared/volumes"
+VOLUME_FILES_DIR = "data/volumes"
 MODEL_SAVE_PATH = "./models/mangosteen_volume_model_rtx3050.h5"
 CHECKPOINT_DIR = "./models/checkpoints"
 LOG_DIR = "./logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")

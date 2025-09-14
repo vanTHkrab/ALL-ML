@@ -14,7 +14,7 @@ import cv2
 # --- 1. CONFIGURATION AND SETUP ---
 # Update these paths to match your local computer's file structure
 DATA_DIR = "./data/prepared/images"
-VOLUME_FILES_DIR = "./data/prepared/volumes"
+VOLUME_FILES_DIR = "data/volumes"
 MODEL_SAVE_PATH = "./models/mangosteen_volume_model_all_suggessions_2.h5" # Saves in the current working directory
 
 # Model parameters
