@@ -409,28 +409,27 @@ class VolumePredictor(tf.keras.Model):
         normalized_pred = self.base_model(inputs)
         return normalized_pred * self.std + self.mean
 
+    # Save model
+    logger.info(f"Saving final model to {MODEL_SAVE_PATH}")
+    try:
+        model.save(MODEL_SAVE_PATH, save_format='h5')
+        logger.info("✅ Model saved successfully")
+    except Exception as e:
+        logger.error(f"Error saving model: {e}")
+        # Try saving weights only
+        model.save_weights(MODEL_SAVE_PATH.replace('.h5', '_weights.h5'))
+        logger.info("✅ Model weights saved successfully")
 
-# Save model
-logger.info(f"Saving final model to {MODEL_SAVE_PATH}")
-try:
-    model.save(MODEL_SAVE_PATH, save_format='h5')
-    logger.info("✅ Model saved successfully")
-except Exception as e:
-    logger.error(f"Error saving model: {e}")
-    # Try saving weights only
-    model.save_weights(MODEL_SAVE_PATH.replace('.h5', '_weights.h5'))
-    logger.info("✅ Model weights saved successfully")
+    # Save normalization parameters
+    np.savez(
+        MODEL_SAVE_PATH.replace('.h5', '_params.npz'),
+        mean=volume_mean,
+        std=volume_std
+    )
 
-# Save normalization parameters
-np.savez(
-    MODEL_SAVE_PATH.replace('.h5', '_params.npz'),
-    mean=volume_mean,
-    std=volume_std
-)
-
-logger.info("✅ Training complete! Model saved successfully.")
-logger.info(f"📊 TensorBoard logs saved to: {LOG_DIR}")
-logger.info("Run 'tensorboard --logdir=./logs/fit' to view training metrics")
+    logger.info("✅ Training complete! Model saved successfully.")
+    logger.info(f"📊 TensorBoard logs saved to: {LOG_DIR}")
+    logger.info("Run 'tensorboard --logdir=./logs/fit' to view training metrics")
 
 
 # --- 8. EVALUATION ---
