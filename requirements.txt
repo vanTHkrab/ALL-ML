@@ -1,3 +1,9 @@
+joblib
+torchvision
+torch
+pandas
+xgboost
+matplotlib
 scikit-learn
 opencv-python
 numpy

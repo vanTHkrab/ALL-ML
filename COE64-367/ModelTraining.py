@@ -13,7 +13,7 @@ import cv2
 
 # --- 1. CONFIGURATION AND SETUP ---
 # Update these paths to match your local computer's file structure
-DATA_DIR = "./data/prepared/images"
+DATA_DIR = "./data/prepared-2"
 VOLUME_FILES_DIR = "data/volumes"
 MODEL_SAVE_PATH = "./models/mangosteen_volume_model_all_suggessions_2.h5" # Saves in the current working directory
 
@@ -27,51 +27,87 @@ LEARNING_RATE_FINE_TUNE = 1e-5
 
 # --- 2. DATA LOADING AND PREPARATION ---
 
-def load_data_from_folders(data_dir, volume_dir):
+def load_data_from_folders(data_dir, volume_dir, allowed_prefix_pattern=r'^(i\d{3})', verbose=True):
     """
-    Loads images and their corresponding volume values.
-    It expects images and text files to share a base filename.
-    
+    โหลดภาพและค่า volume โดยจับคู่ด้วย prefix แบบ i001*, i002*, ...
+    - ภาพใด ๆ ที่ขึ้นต้นด้วย (i + เลข 3 หลัก) จะถูก map ไปหา <prefix>.txt ใน volume_dir
+    - ถ้ามีหลายภาพต่อ 1 prefix จะนับเป็นหลาย sample โดยใช้ค่า volume เดียวกัน
+
     Args:
-        data_dir (str): Path to the directory containing images.
-        volume_dir (str): Path to the directory containing volume text files.
-        
+        data_dir (str): โฟลเดอร์ภาพ
+        volume_dir (str): โฟลเดอร์ไฟล์ volume (.txt) ที่ตั้งชื่อตาม prefix (เช่น i001.txt)
+        allowed_prefix_pattern (str): regex สำหรับดึง prefix (default: r'^(i\\d{3})')
+        verbose (bool): พิมพ์สรุป/คำเตือน
+
     Returns:
-        tuple: A tuple of lists containing image paths and their corresponding volumes.
+        tuple[list[str], list[float]]: (image_paths, volumes) ที่จับคู่สำเร็จแล้ว
     """
-    image_paths = []
-    volumes = []
-    
+    image_paths, volumes = [], []
+
     if not os.path.exists(data_dir):
         print(f"❌ Image data directory not found: {data_dir}")
         return [], []
     if not os.path.exists(volume_dir):
         print(f"❌ Volume data directory not found: {volume_dir}")
         return [], []
-    
+
+    prefix_re = re.compile(allowed_prefix_pattern, re.IGNORECASE)
+
+    # เก็บสถานะเพื่อตรวจว่า prefix ไหนไม่มีไฟล์ .txt
+    seen_prefixes = set()
+    missing_volume_for_prefix = set()
+
     for filename in os.listdir(data_dir):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            # The base filename is everything before the file extension
-            base_filename = filename.split('.', 1)[0]
-            
-            volume_filename = f"{base_filename}.txt"
-            
-            volume_filepath = None
-            if os.path.exists(os.path.join(volume_dir, volume_filename)):
-                volume_filepath = os.path.join(volume_dir, volume_filename)
-            
-            if volume_filepath:
-                try:
-                    # Read the single volume value from the text file
-                    with open(volume_filepath, 'r') as f:
-                        volume_value = float(f.read().strip())
-                        image_paths.append(os.path.join(data_dir, filename))
-                        volumes.append(volume_value)
-                except (ValueError, FileNotFoundError) as e:
-                    print(f"⚠️ Skipping file {filename}: Could not read volume file. Error: {e}")
-            else:
-                print(f"⚠️ Skipping file {filename}: No matching volume file found.")
-    
+        lower = filename.lower()
+        if not lower.endswith(('.png', '.jpg', '.jpeg')):
+            continue
+
+        m = prefix_re.match(os.path.splitext(filename)[0])
+        if not m:
+            if verbose:
+                print(f"⚠️  Skip (no valid prefix): {filename}")
+            continue
+
+        prefix = m.group(1).lower()
+        seen_prefixes.add(prefix)
+
+        volume_filename = f"{prefix}_mangosteen_grid.txt"
+        volume_filepath = os.path.join(volume_dir, volume_filename)
+
+        if not os.path.exists(volume_filepath):
+            missing_volume_for_prefix.add(prefix)
+            if verbose:
+                print(f"⚠️  Missing volume file for prefix '{prefix}': expected {volume_filename}")
+            continue
+
+        try:
+            with open(volume_filepath, 'r') as f:
+                # รองรับไฟล์ที่มีตัวเลขหลายบรรทัด โดยจะเอาบรรทัดแรกที่ parse ได้
+                vol = None
+                for line in f:
+                    s = line.strip()
+                    if not s:
+                        continue
+                    vol = float(s)
+                    break
+                if vol is None:
+                    raise ValueError("No numeric value found")
+        except Exception as e:
+            if verbose:
+                print(f"⚠️  Bad volume file for {prefix}: {volume_filename} (error: {e})")
+            continue
+
+        # ผ่านหมด → บันทึกเป็น sample หนึ่งตัว (ภาพหนึ่งใบต่อหนึ่งแถว)
+        image_paths.append(os.path.join(data_dir, filename))
+        volumes.append(vol)
+
+    if verbose:
+        print("\n— Matching summary —")
+        print(f"Prefixes detected: {len(seen_prefixes)}")
+        print(f"Samples matched (images with volume): {len(image_paths)}")
+        if missing_volume_for_prefix:
+            print(f"Prefixes missing .txt: {sorted(missing_volume_for_prefix)[:10]}{' ...' if len(missing_volume_for_prefix) > 10 else ''}")
+
     return image_paths, volumes
 
 print("Loading data...")
